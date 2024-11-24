@@ -1,5 +1,3 @@
-
-
 -- ████████  █████   █     █ 
 --   █ █   ██    █  █     ██ 
 --   █ █████ ███ ███       █ 
@@ -40,6 +38,8 @@ select COUNT(*) as 總用戶數量 from "USER";
 
 -- 1-5 查詢：取得 USER 資料表所有用戶資料，並列出前 3 筆（提示：使用limit語法）
 select * from "USER" limit 3;
+
+
 
 
 
@@ -210,7 +210,6 @@ insert into "COURSE" (user_id, skill_id, name, start_at, end_at, max_participant
 );
 
 
-
 -- ████████  █████   █    █████ 
 --   █ █   ██    █  █     █     
 --   █ █████ ███ ███      ████  
@@ -229,24 +228,88 @@ insert into "COURSE" (user_id, skill_id, name, start_at, end_at, max_participant
         -- 2. 預約時間`booking_at` 設為2024-11-24 16:00:00
         -- 3. 狀態`status` 設定為即將授課
 
+	-- 、join_at、leave_at、cancelled_at、cancellation_reason
+
+insert into "COURSE_BOOKING" (user_id, course_id, booking_at, status) values 
+(
+	(select id from "USER" where email = 'wXlTq@hexschooltest.io'),
+	(select id from "COURSE" where user_id = (
+		select id from "USER" where email = 'lee2000@hexschooltest.io')
+	),
+	'2024-11-24 16:00:00',
+	'即將授課'	
+),
+(
+	(select id from "USER" where email = 'richman@hexschooltest.io'),
+	(select id from "COURSE" where user_id = (
+		select id from "USER" where email = 'lee2000@hexschooltest.io')
+	),
+	'2024-11-24 16:00:00',
+	'即將授課'	
+);
+
+
 -- 5-2. 修改：`王小明`取消預約 `李燕容` 的課程，請在`COURSE_BOOKING`更新該筆預約資料：
     -- 1. 取消預約時間`cancelled_at` 設為2024-11-24 17:00:00
     -- 2. 狀態`status` 設定為課程已取消
+
+update "COURSE_BOOKING"
+set cancelled_at = '2024-11-24 17:00:00',
+	status = '課程已取消'
+where user_id = (select id from "USER" where email = 'wXlTq@hexschooltest.io');
+
 
 -- 5-3. 新增：`王小明`再次預約 `李燕容`   的課程，請在`COURSE_BOOKING`新增一筆資料：
     -- 1. 預約人設為`王小明`
     -- 2. 預約時間`booking_at` 設為2024-11-24 17:10:25
     -- 3. 狀態`status` 設定為即將授課
 
+insert into "COURSE_BOOKING" (user_id, course_id, booking_at, status) values 
+(
+	(select id from "USER" where email = 'wXlTq@hexschooltest.io'),
+	(select id from "COURSE" where user_id = (
+		select id from "USER" where email = 'lee2000@hexschooltest.io')
+	),
+	'2024-11-24 17:10:25',
+	'即將授課'	
+);
+
+
 -- 5-4. 查詢：取得王小明所有的預約紀錄，包含取消預約的紀錄
+select user_id, course_id, booking_at, status, cancelled_at 
+from "COURSE_BOOKING" 
+where user_id = (select id from "USER" where email = 'wXlTq@hexschooltest.io');
+
 
 -- 5-5. 修改：`王小明` 現在已經加入直播室了，請在`COURSE_BOOKING`更新該筆預約資料（請注意，不要更新到已經取消的紀錄）：
     -- 1. 請在該筆預約記錄他的加入直播室時間 `join_at` 設為2024-11-25 14:01:59
     -- 2. 狀態`status` 設定為上課中
+update "COURSE_BOOKING"
+set join_at = '2024-11-25 14:01:59',
+	status = '上課中'
+where user_id = (select id from "USER" where email = 'wXlTq@hexschooltest.io') 
+and status <> '課程已取消';
 
 -- 5-6. 查詢：計算用戶王小明的購買堂數，顯示須包含以下欄位： user_id , total。 (需使用到 SUM 函式與 Group By)
 
+select 
+	user_id,
+	SUM(purchased_credits) as total
+from "CREDIT_PURCHASE" 
+where user_id = (select id from "USER" where email = 'wXlTq@hexschooltest.io')
+group by user_id;
+
+
 -- 5-7. 查詢：計算用戶王小明的已使用堂數，顯示須包含以下欄位： user_id , total。 (需使用到 Count 函式與 Group By)
+
+select 
+	user_id,
+	count(*) as total
+from "COURSE_BOOKING" 
+where user_id = (select id from "USER" where email = 'wXlTq@hexschooltest.io') 
+and status = '上課中'
+group by user_id;
+
 
 -- 5-8. [挑戰題] 查詢：請在一次查詢中，計算用戶王小明的剩餘可用堂數，顯示須包含以下欄位： user_id , remaining_credit
     -- 提示：
@@ -254,6 +317,29 @@ insert into "COURSE" (user_id, skill_id, name, start_at, end_at, max_participant
     -- from ( 用戶王小明的購買堂數 ) as "CREDIT_PURCHASE"
     -- inner join ( 用戶王小明的已使用堂數) as "COURSE_BOOKING"
     -- on "COURSE_BOOKING".user_id = "CREDIT_PURCHASE".user_id;
+
+select 
+    purchase.user_id,
+    purchase.total_credits - COALESCE(used.used_credit, 0) as remaining_credits
+from 
+    (select 
+    	user_id,
+		SUM(purchased_credits) as total_credits 
+	from "CREDIT_PURCHASE" 
+		where user_id = (select id from "USER" where email = 'wXlTq@hexschooltest.io') 
+		group by user_id
+    ) as purchase 
+inner join 
+    (select 
+        user_id,
+        COUNT(*) as used_credit
+     from "COURSE_BOOKING"
+        where user_id = (select id from "USER" where email = 'wXlTq@hexschooltest.io') 
+			and status = '上課中'
+        group by user_id
+    ) as used 
+on purchase.user_id = used.user_id;
+
 
 
 -- ████████  █████   █     ███  
