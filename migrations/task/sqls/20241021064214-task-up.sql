@@ -321,7 +321,7 @@ group by user_id;
 
 select 
     purchase.user_id,
-    purchase.total_credits - COALESCE(used.used_credit, 0) as remaining_credits
+    purchase.total_credits - COALESCE(used.used_credit, 0) as remaining_credit
 from 
     (select 
     	user_id,
